@@ -1,6 +1,8 @@
 const { ethers } = require('ethers')
 const { Transaction, secp256k1 } = require('thor-devkit')
 const bent = require('bent')
+const { Ident, Vault } = require('provide-js')
+require('dotenv').config()
 
 // address & abi outsourced for readability
 const { address, abi } = require('./contract.js')
@@ -12,8 +14,33 @@ async function main() {
   const post = bent('POST', 'https://node-testnet.vechain.energy', 'json')
   const getSponsorship = bent('POST', 'https://sponsor-testnet.vechain.energy', 'json')
 
-  // generate a random wallet for this interaction
-  const wallet = ethers.Wallet.createRandom()
+  // Load the org wallet from refresh token
+
+  //load the refresh token from env
+var REFRESH_TOKEN = process.env.PRVD_USER_REFRESH_TOKEN;
+var ORG_ID = process.env.PRVD_USER_ORGID;
+var USER_ID = process.env.PRVD_USER_ID;
+
+console.log("Authenticating for Org:" + ORG_ID);
+console.log("Authenticating for user:" + USER_ID);
+
+var access_token_request = {};
+access_token_request.organization_id = ORG_ID;
+access_token_request.user_id = USER_ID;
+
+//get the access token
+const IDENT_PROXY = new Ident(REFRESH_TOKEN);
+const ACCESS_TOKEN = await IDENT_PROXY.createToken(access_token_request);
+
+//get the PRVD vault
+const VAULT_PROXY = new Vault(ACCESS_TOKEN.accessToken);
+const MY_VAULTS = await VAULT_PROXY.fetchVaults();
+var MY_VAULT_ID = MY_VAULTS.results[0].id;
+
+//get the key ids ~ no private keys exposed!!
+const MY_VAULT_KEY_IDS = await VAULT_PROXY.fetchVaultKeys(MY_VAULT_ID);
+var MY_WALLET = MY_VAULT_KEY_IDS.results.filter(vaultkeys => vaultkeys.spec === "secp256k1");
+
 
   // build the contract call
   const Counter = new ethers.Interface(abi)
@@ -63,9 +90,10 @@ async function main() {
   const sponsorSignature = Buffer.from(signature.substr(2), 'hex')
 
   // sign the transaction
-  const signingHash = transaction.signingHash()
-  const originSignature = secp256k1.sign(signingHash, Buffer.from(wallet.privateKey.slice(2), 'hex'))
-  transaction.signature = Buffer.concat([originSignature, sponsorSignature])
+  const signingHash = transaction.signingHash();
+  //Note the remote signer!
+  const originSignature = await VAULT_PROXY.signMessage(MY_VAULT_ID, MY_WALLET[0].id,signingHash);
+  transaction.signature = Buffer.concat([originSignature.signature, sponsorSignature]);
 
   // submit the transaction
   const rawTransaction = `0x${transaction.encode().toString('hex')}`

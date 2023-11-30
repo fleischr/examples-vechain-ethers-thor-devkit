@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "bent": "^7.3.12",
+    "dotenv": "^16.3.1",
     "ethers": "^6.5.1",
     "provide-js": "^1.10.0",
     "thor-devkit": "^2.0.8"
