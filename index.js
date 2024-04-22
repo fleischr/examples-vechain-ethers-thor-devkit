@@ -3,7 +3,7 @@ const { Transaction, secp256k1 } = require('thor-devkit')
 const bent = require('bent')
 
 // address & abi outsourced for readability
-const { address, abi } = require('./contract.js')
+const { address, abi } = require('./nftcontract.js')
 
 async function main() {
 
@@ -16,11 +16,11 @@ async function main() {
   const wallet = ethers.Wallet.createRandom()
 
   // build the contract call
-  const Counter = new ethers.Interface(abi)
+  const nftcontract = new ethers.Interface(abi)
   const clauses = [{
     to: address,
     value: '0x0',
-    data: Counter.encodeFunctionData("increment", [])
+    data: nftcontract.encodeFunctionData("openMint", [])
   }]
 
   // fetch status information for the network
